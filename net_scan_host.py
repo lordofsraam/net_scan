@@ -4,6 +4,7 @@ class Host:
 		self.addr = element[1].attrib['addr']
 		self.mac = "UNK"
 		self.vendor = "UNK"
+		self.group = "ALL"
 		if len(element) > 2 and 'addrtype' in element[2].attrib and element[2].attrib['addrtype'] == 'mac':
 			self.mac = element[2].attrib['addr']
 		if len(element) > 2 and 'vendor' in element[2].attrib and element[2].attrib['addrtype'] == 'mac':

@@ -5,7 +5,6 @@ import sys, os, argparse, curses, xml, locale, math
 from time import sleep
 from multiprocessing import Process
 
-from net_scan_scanner import scan
 from net_scan_structs import Display_Types
 from net_scan_host import Host, DSHost
 
@@ -16,8 +15,12 @@ file_available = False
 need_clear = False
 filter_state = "OFF"
 
+target_file_name = "targets"
+
 cmd_buffer = []
 cmd_index = len(cmd_buffer)
+
+clear_times = 0
 
 def _print(string):
 	global mainscr
@@ -35,6 +38,7 @@ def refresh_all():
 	global dscanscr
 	if args.display_option  == Display_Types.NCURSES:
 		mainscr.refresh()
+		mainscr.redrawwin()
 		if dscanscr != None:
 			dscanscr.redrawwin()
 			dscanscr.overwrite(mainscr)
@@ -46,6 +50,8 @@ def scan(hosts):
 	global need_clear
 	global filter_state
 	global ip_width
+	global file_available
+	global clear_times
 	if file_available:
 		try:
 			res = ET.parse('res.xml')
@@ -58,6 +64,11 @@ def scan(hosts):
 			if args.display_option == Display_Types.CLI:
 				for c in hosts_res:
 					print c.summary
+			if clear_times > 0:
+				mainscr.clear()
+				#curses.flash()
+				clear_times -= 1
+			#mainscr.clear()
 			redraw_hosts()
 		except xml.etree.ElementTree.ParseError:
 			_print("Waiting for file.")
@@ -68,13 +79,16 @@ def redraw_hosts():
 	global ip_width
 	global need_clear
 	global filter_state
+	global hosts_res
 	if args.display_option  == Display_Types.NCURSES:
 		count = 0
 		inc = 0
 		max_in_x = (mainscr.getmaxyx()[1]/ip_width)
 		max_in_y = (mainscr.getmaxyx()[0] - 3)
+		if need_clear:
+			mainscr.clear()
+			need_clear = False
 		for c in hosts_res:
-			_print(str(max_in_x)+" "+str(mainscr.getmaxyx()[0]))
 			if count/max_in_x < max_in_y:
 				index_str = "("+("%3d"%count).replace(" ","0")+")"
 				if filter_state == "UP":
@@ -90,9 +104,6 @@ def redraw_hosts():
 			else:
 				break
 			count += 1
-		if need_clear:
-			mainscr.clear()
-			need_clear = False
 		mainscr.addstr(mainscr.getmaxyx()[0]-1,0,":"+input_str)
 		refresh_all()
 
@@ -123,6 +134,7 @@ def cmd_proc(commands):
 	global dscanscr
 	global need_clear
 	global filter_state
+	global clear_times
 	commands_list = commands.split(" ")
 	if commands.upper() == "QUIT":
 		curses.endwin()
@@ -147,12 +159,27 @@ def cmd_proc(commands):
 		redraw_hosts()
 	elif commands.upper() == "REDRAW":
 		redraw_hosts()
+	elif commands_list[0].upper() == "RM" and len(commands_list) > 1:
+		del hosts_res[int(commands_list[1])]
+		with open(target_file_name,'w') as t:
+			for e in hosts_res:
+				t.write(e.addr+"\n")
+		clear_times = 500 #Random number to please the python gods
+		refresh_all()
+	elif commands_list[0].upper == "ADD" and len(commands_list) > 1:
+		need_clear = True
+		with open(target_file_name,'aw') as t:
+			t.write("\n"+commands_list[1]+"\n")
+		refresh_all()
+
 
 devnull = open('/dev/null', 'w')
 def nmap_loop():
+	global file_available
+	global target_file_name
 	while 1:
 		file_available = False
-		subprocess.call("nmap -n -v -sn "+args.target+" -oX res.xml",shell=True,stdout=devnull)
+		subprocess.call("nmap -n -v -sn -iL "+target_file_name+" -oX res.xml",shell=True,stdout=devnull)
 		file_available = True
 		sleep(1)
 
@@ -214,6 +241,7 @@ try:
 			print "Need root for deep scans."
 			exit()
 		if args.display_option == Display_Types.NCURSES:
+			#global hosts_res
 			locale.setlocale(locale.LC_ALL,"")
 			mainscr = curses.initscr()
 			mainscr.nodelay(True)
@@ -225,6 +253,11 @@ try:
 			file_available = False
 			subprocess.call("nmap -n -v -sn "+args.target+" -oX res.xml",shell=True,stdout=devnull)
 			file_available = True
+			scan(args.target)
+			with open(target_file_name,'w') as t:
+				for h in hosts_res:
+					t.write(h.addr+"\n")
+
 		elif args.display_option == Display_Types.CLI:
 			print 'Output will be display in CLI'
 		else:
