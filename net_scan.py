@@ -20,8 +20,6 @@ target_file_name = "targets"
 cmd_buffer = []
 cmd_index = len(cmd_buffer)
 
-clear_times = 0
-
 def _print(string):
 	global mainscr
 	if args.display_option  == Display_Types.CLI:
@@ -51,11 +49,11 @@ def scan(hosts):
 	global filter_state
 	global ip_width
 	global file_available
-	global clear_times
+	global old_amnt_of_hosts
 	if file_available:
 		try:
 			res = ET.parse('res.xml')
-			_print("File parsed.")
+			#_print("File parsed.")
 			root = res.getroot()
 			global hosts_res
 			hosts_res = []
@@ -64,16 +62,21 @@ def scan(hosts):
 			if args.display_option == Display_Types.CLI:
 				for c in hosts_res:
 					print c.summary
-			if clear_times > 0:
-				mainscr.clear()
-				#curses.flash()
-				clear_times -= 1
-			#mainscr.clear()
 			redraw_hosts()
+			if len(hosts_res) != old_amnt_of_hosts:
+				on_hosts_amnt_change()
+			old_amnt_of_hosts = len(hosts_res)
 		except xml.etree.ElementTree.ParseError:
-			_print("Waiting for file.")
+			#_print("Waiting for file.")
+			pass
 	else:
-		_print("File not available.")
+		#_print("File not available.")
+		pass
+
+old_amnt_of_hosts = len(hosts_res)
+def on_hosts_amnt_change():
+	global need_clear
+	need_clear = True
 
 def redraw_hosts():
 	global ip_width
@@ -134,7 +137,6 @@ def cmd_proc(commands):
 	global dscanscr
 	global need_clear
 	global filter_state
-	global clear_times
 	commands_list = commands.split(" ")
 	if commands.upper() == "QUIT":
 		curses.endwin()
@@ -164,12 +166,12 @@ def cmd_proc(commands):
 		with open(target_file_name,'w') as t:
 			for e in hosts_res:
 				t.write(e.addr+"\n")
-		clear_times = 500 #Random number to please the python gods
 		refresh_all()
-	elif commands_list[0].upper == "ADD" and len(commands_list) > 1:
+	elif commands_list[0].upper() == "ADD" and len(commands_list) > 1:
 		need_clear = True
-		with open(target_file_name,'aw') as t:
+		with open(target_file_name,"a") as t:
 			t.write("\n"+commands_list[1]+"\n")
+		_print("Wrote to target list.")
 		refresh_all()
 
 
