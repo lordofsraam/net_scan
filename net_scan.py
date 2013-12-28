@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, argparse, curses, xml, locale, math
+import sys, os, argparse, curses, xml, locale, math, subprocess
 
 from time import sleep
 from multiprocessing import Process
@@ -8,7 +8,6 @@ from multiprocessing import Process
 from net_scan_structs import Display_Types
 from net_scan_host import Host, DSHost
 
-import sys, os, subprocess
 import xml.etree.ElementTree as ET
 
 file_available = False
@@ -16,6 +15,7 @@ need_clear = False
 filter_state = "OFF"
 
 target_file_name = "targets"
+spec_res_dir = "specific_results/"
 
 cmd_buffer = []
 cmd_index = len(cmd_buffer)
@@ -120,8 +120,9 @@ def dscan(host):
 	dscanscr.addstr(2,1,"Vendor: "+host.vendor)
 	dscanscr.addstr(3,1,"Loading more info...")
 	dscanscr.refresh()
-	subprocess.call("sudo nmap -v "+host.addr+" -oX dsres.xml",shell=True,stdout=devnull)
-	res = ET.parse('dsres.xml')
+	if not os.path.isfile(spec_res_dir+host.addr+".xml"):
+		subprocess.call("sudo nmap -v "+host.addr+" -oX "+spec_res_dir+host.addr+".xml",shell=True,stdout=devnull)
+	res = ET.parse(spec_res_dir+host.addr+".xml")
 	root = res.getroot()
 	host_res = DSHost(filter(lambda c: c.tag == 'host', root)[0])
 	dscanscr.addstr(3,1," "*(dscanscr.getmaxyx()[1]-2))
@@ -138,7 +139,7 @@ def cmd_proc(commands):
 	global need_clear
 	global filter_state
 	commands_list = commands.split(" ")
-	if commands.upper() == "QUIT":
+	if commands.upper() == "QUIT" or commands.upper() == "EXIT":
 		curses.endwin()
 		bg_proc.terminate()
 		exit()
@@ -252,6 +253,8 @@ try:
 			curses.cbreak()
 			curses.curs_set(0)
 			_print("Loading...")
+			if not os.path.exists(spec_res_dir):
+				os.makedirs(spec_res_dir)
 			file_available = False
 			subprocess.call("nmap -n -v -sn "+args.target+" -oX res.xml",shell=True,stdout=devnull)
 			file_available = True

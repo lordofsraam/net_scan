@@ -2,6 +2,7 @@ class Host:
 	def __init__(self, element):
 		self.state = element[0].attrib['state']
 		self.addr = element[1].attrib['addr']
+		self.reason = element[0].attrib['reason']
 		self.mac = "UNK"
 		self.vendor = "UNK"
 		self.group = "ALL"
@@ -9,7 +10,7 @@ class Host:
 			self.mac = element[2].attrib['addr']
 		if len(element) > 2 and 'vendor' in element[2].attrib and element[2].attrib['addrtype'] == 'mac':
 			self.vendor = element[2].attrib['vendor']
-		self.summary = (u'\u25FB' if self.state != 'up' else u'\u25A0') + " " + self.addr
+		self.summary = (u'\u25A0' if (self.state == 'up' and self.reason != 'reset') else u'\u25FB') + " " + self.addr
 
 class Port:
 	def __init__(self,number,protocol,service):
