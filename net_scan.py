@@ -22,6 +22,8 @@ log_buffer = []
 cmd_buffer = []
 cmd_index = len(cmd_buffer)
 
+filtered_hosts = {}
+
 def _print(string,log_only=False):
 	global mainscr
 	global log_buffer
@@ -73,6 +75,7 @@ def scan(hosts):
 			hosts_res = []
 			for child in filter(lambda c: c.tag == 'host', root):
 				hosts_res.append(Host(child))
+				if hosts_res[-1].addr in filtered_hosts: hosts_res[-1].group = filtered_hosts[hosts_res[-1].addr]
 			if args.display_option == Display_Types.CLI:
 				for c in hosts_res:
 					print c.summary
@@ -109,15 +112,19 @@ def redraw_hosts():
 			if count/max_in_x < max_in_y:
 				index_str = "("+("%3d"%count).replace(" ","0")+")"
 				if filter_state == "UP":
-					if c.state == 'up':
+					if c.state == 'up' and c.reason != 'reset':
 						mainscr.addstr(inc/max_in_x,(inc%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'))
 						inc += 1
 				elif filter_state == "DOWN":
-					if c.state != 'up':
+					if c.state == 'down' or (c.state == 'up' and c.reason == 'reset'):
 						mainscr.addstr(inc/max_in_x,(inc%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'))
 						inc += 1
-				else:
+				elif filter_state == "OFF":
 					mainscr.addstr(count/max_in_x,(count%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'))
+				else:
+					if c.group == filter_state:
+						mainscr.addstr(inc/max_in_x,(inc%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'))
+						inc += 1
 			else:
 				break
 			count += 1
@@ -170,6 +177,9 @@ def cmd_proc(commands):
 		dscanscr = None
 		need_clear = True
 		refresh_all()
+	elif commands.upper() == "DUMPLOG":
+		dump_log()
+		_print("Log dumped to file.")
 	elif commands_list[0].upper() == "FILTER" and len(commands_list) > 1:
 		need_clear = True
 		if commands_list[1].upper() == "UP":
@@ -178,9 +188,12 @@ def cmd_proc(commands):
 			filter_state = "DOWN"
 		elif commands_list[1].upper() == "NONE" or commands_list[1].upper() == "OFF":
 			filter_state = "OFF"
+		else:
+			filter_state = commands_list[1]
 		redraw_hosts()
 	elif commands_list[0].upper() == "CHGRP" and len(commands_list) > 2:
 		hosts_res[int(commands_list[1])].group = commands_list[2]
+		filtered_hosts[hosts_res[int(commands_list[1])].addr] = commands_list[2]
 	elif commands.upper() == "REDRAW":
 		redraw_hosts()
 	elif commands_list[0].upper() == "RM" and len(commands_list) > 1:
@@ -282,7 +295,6 @@ try:
 			with open(target_file_name,'w') as t:
 				for h in hosts_res:
 					t.write(h.addr+"\n")
-
 		elif args.display_option == Display_Types.CLI:
 			print 'Output will be display in CLI'
 		else:
