@@ -309,7 +309,7 @@ try:
 			#global hosts_res
 			locale.setlocale(locale.LC_ALL,"")
 			mainscr = curses.initscr()
-			curses.start_color()
+			#curses.start_color()
 			mainscr.nodelay(True)
 			mainscr.keypad(1)
 			curses.noecho()
