@@ -26,7 +26,7 @@ def _print(string):
 		print string
 	elif args.display_option  == Display_Types.NCURSES:
 		mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2," "*((mainscr.getmaxyx()[1]/2)-1))
-		mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2,">"+string)
+		mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2,">"+str(string))
 		refresh_all()
 	elif args.display_option == Display_Types.GRAPHIC:
 		pass
@@ -111,7 +111,7 @@ def redraw_hosts():
 		refresh_all()
 
 dscanscr = None
-def dscan(host):
+def dscan(host,rescan=False):
 	global dscanscr
 	dscanscr = curses.newwin(mainscr.getmaxyx()[0]/2,mainscr.getmaxyx()[1]/2,mainscr.getmaxyx()[0]/4,mainscr.getmaxyx()[1]/4)
 	dscanscr.border()
@@ -120,7 +120,7 @@ def dscan(host):
 	dscanscr.addstr(2,1,"Vendor: "+host.vendor)
 	dscanscr.addstr(3,1,"Loading more info...")
 	dscanscr.refresh()
-	if not os.path.isfile(spec_res_dir+host.addr+".xml"):
+	if not os.path.isfile(spec_res_dir+host.addr+".xml") or rescan:
 		subprocess.call("sudo nmap -v "+host.addr+" -oX "+spec_res_dir+host.addr+".xml",shell=True,stdout=devnull)
 	res = ET.parse(spec_res_dir+host.addr+".xml")
 	root = res.getroot()
@@ -146,7 +146,12 @@ def cmd_proc(commands):
 	elif commands.upper() == "FLASH":
 		curses.flash()
 	elif commands_list[0].upper() == "DSCAN" and len(commands_list) > 1:
-		dscan(hosts_res[int(commands_list[1])])
+		if len(commands_list) == 2:
+			dscan(hosts_res[int(commands_list[1])])
+		else:
+			cmd_args = commands_list[1:len(commands_list)-1:]
+			if '-r' in cmd_args:
+				dscan(hosts_res[int(commands_list[-1])],True)
 	elif commands.upper() == "CLEAR":
 		dscanscr = None
 		need_clear = True
