@@ -18,6 +18,7 @@ target_file_name = "targets"
 spec_res_dir = "specific_results/"
 
 log_buffer = []
+logscr = None
 
 cmd_buffer = []
 cmd_index = len(cmd_buffer)
@@ -27,16 +28,19 @@ filtered_hosts = {}
 def _print(string,log_only=False):
 	global mainscr
 	global log_buffer
+	global logscr
 	if not log_only:
 		if args.display_option  == Display_Types.CLI:
 			print string
 		elif args.display_option  == Display_Types.NCURSES:
 			mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2," "*((mainscr.getmaxyx()[1]/2)-1))
-			mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2,">"+str(string))
+			mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2,">"+str(string[:((mainscr.getmaxyx()[1]/2)-1):]))
 			refresh_all()
 		elif args.display_option == Display_Types.GRAPHIC:
 			pass
 	log_buffer.append(str(string))
+	if logscr != None and args.display_option  == Display_Types.NCURSES:
+		show_log()
 
 def dump_log(to_file=True):
 	global log_buffer
@@ -50,6 +54,7 @@ def dump_log(to_file=True):
 def refresh_all():
 	global mainscr
 	global dscanscr
+	global logscr
 	if args.display_option  == Display_Types.NCURSES:
 		mainscr.refresh()
 		mainscr.redrawwin()
@@ -57,6 +62,10 @@ def refresh_all():
 			dscanscr.redrawwin()
 			dscanscr.overwrite(mainscr)
 			dscanscr.refresh()
+		if logscr != None:
+			logscr.redrawwin()
+			logscr.overwrite(mainscr)
+			logscr.refresh()
 
 hosts_res = []
 ip_width = 24
@@ -154,12 +163,24 @@ def dscan(host,rescan=False):
 			dscanscr.addstr(4+i,1,"Port "+host_res.ports[i].number+": "+host_res.ports[i].protocol)
 			i += 1
 
+def show_log():
+	global logscr
+	logscr = curses.newwin((mainscr.getmaxyx()[0]/4)+1,mainscr.getmaxyx()[1]/2,mainscr.getmaxyx()[0]-(mainscr.getmaxyx()[0]/4),mainscr.getmaxyx()[1]/2)
+	ind = -1
+	for i in xrange(2,logscr.getmaxyx()[0]):
+		if ind > -len(log_buffer): logscr.addstr(logscr.getmaxyx()[0]-i,1,log_buffer[ind])
+		ind -= 1
+	logscr.border()
+	logscr.refresh()
+
 def cmd_proc(commands):
 	global bg_proc
 	global dscanscr
 	global need_clear
 	global filter_state
+	global logscr
 	commands_list = commands.split(" ")
+	_print(commands)
 	if commands.upper() == "QUIT" or commands.upper() == "EXIT":
 		curses.endwin()
 		bg_proc.terminate()
@@ -208,7 +229,15 @@ def cmd_proc(commands):
 			t.write("\n"+commands_list[1]+"\n")
 		_print("Wrote to target list.")
 		refresh_all()
-
+	elif commands.upper() == "LOG":
+		if logscr == None:
+			show_log()
+		else:
+			logscr = None
+			need_clear = True
+		refresh_all()
+	elif commands_list[0].upper() == "PRINT":
+		_print(" ".join(commands_list[1::]))
 
 devnull = open('/dev/null', 'w')
 def nmap_loop():
@@ -280,6 +309,7 @@ try:
 			#global hosts_res
 			locale.setlocale(locale.LC_ALL,"")
 			mainscr = curses.initscr()
+			curses.start_color()
 			mainscr.nodelay(True)
 			mainscr.keypad(1)
 			curses.noecho()
