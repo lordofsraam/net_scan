@@ -17,19 +17,33 @@ filter_state = "OFF"
 target_file_name = "targets"
 spec_res_dir = "specific_results/"
 
+log_buffer = []
+
 cmd_buffer = []
 cmd_index = len(cmd_buffer)
 
-def _print(string):
+def _print(string,log_only=False):
 	global mainscr
-	if args.display_option  == Display_Types.CLI:
-		print string
-	elif args.display_option  == Display_Types.NCURSES:
-		mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2," "*((mainscr.getmaxyx()[1]/2)-1))
-		mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2,">"+str(string))
-		refresh_all()
-	elif args.display_option == Display_Types.GRAPHIC:
-		pass
+	global log_buffer
+	if not log_only:
+		if args.display_option  == Display_Types.CLI:
+			print string
+		elif args.display_option  == Display_Types.NCURSES:
+			mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2," "*((mainscr.getmaxyx()[1]/2)-1))
+			mainscr.addstr(mainscr.getmaxyx()[0]-1,mainscr.getmaxyx()[1]/2,">"+str(string))
+			refresh_all()
+		elif args.display_option == Display_Types.GRAPHIC:
+			pass
+	log_buffer.append(str(string))
+
+def dump_log(to_file=True):
+	global log_buffer
+	if to_file:
+		with open("scan_log.txt",'w') as f:
+			for l in log_buffer:
+				f.write(l+'\n')
+	for l in log_buffer:
+		print l
 
 def refresh_all():
 	global mainscr
@@ -165,6 +179,8 @@ def cmd_proc(commands):
 		elif commands_list[1].upper() == "NONE" or commands_list[1].upper() == "OFF":
 			filter_state = "OFF"
 		redraw_hosts()
+	elif commands_list[0].upper() == "CHGRP" and len(commands_list) > 2:
+		hosts_res[int(commands_list[1])].group = commands_list[2]
 	elif commands.upper() == "REDRAW":
 		redraw_hosts()
 	elif commands_list[0].upper() == "RM" and len(commands_list) > 1:
@@ -202,7 +218,6 @@ def on_key_down(key):
 		mainscr.addstr(mainscr.getmaxyx()[0]-1,0," "*(mainscr.getmaxyx()[1]/2))
 		mainscr.addstr(mainscr.getmaxyx()[0]-1,0,":"+input_str)
 		refresh_all()
-
 	if key == ord('Q'):
 		curses.endwin()
 		bg_proc.terminate()
@@ -291,4 +306,5 @@ try:
 except Exception as e:
 	curses.endwin()
 	bg_proc.terminate()
+	dump_log()
 	raise
