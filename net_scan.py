@@ -130,7 +130,13 @@ def redraw_hosts():
 						mainscr.addstr(inc/max_in_x,(inc%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'))
 						inc += 1
 				elif filter_state == "OFF":
-					mainscr.addstr(count/max_in_x,(count%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'))
+					if os.path.isfile(spec_res_dir+c.addr+".xml"):
+						res = ET.parse(spec_res_dir+c.addr+".xml")
+						root = res.getroot()
+						_res = DSHost(filter(lambda _: _.tag == 'host', root)[0])
+						mainscr.addstr(count/max_in_x,(count%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'), (curses.color_pair(1) if _res.has_httpd else curses.color_pair(0)))
+					else:
+						mainscr.addstr(count/max_in_x,(count%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'))
 				else:
 					if c.group == filter_state:
 						mainscr.addstr(inc/max_in_x,(inc%max_in_x)*ip_width,(index_str+" "+c.summary).encode('utf-8'))
@@ -185,6 +191,7 @@ def cmd_proc(commands):
 	if commands.upper() == "QUIT" or commands.upper() == "EXIT":
 		curses.endwin()
 		bg_proc.terminate()
+		ds_proc.terminate()
 		exit()
 	elif commands.upper() == "FLASH":
 		curses.flash()
@@ -316,7 +323,8 @@ try:
 			#global hosts_res
 			locale.setlocale(locale.LC_ALL,"")
 			mainscr = curses.initscr()
-			#curses.start_color()
+			curses.start_color()
+			curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
 			mainscr.nodelay(True)
 			mainscr.keypad(1)
 			curses.noecho()
@@ -356,5 +364,6 @@ try:
 except Exception as e:
 	curses.endwin()
 	if bg_proc != None: bg_proc.terminate()
+	if ds_proc != None: ds_proc.terminate()
 	dump_log()
 	raise
