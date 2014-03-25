@@ -52,6 +52,7 @@ def dump_log(to_file=True):
 		print l
 
 def refresh_all():
+	#No _print() calls in here or we get infi recursion
 	global mainscr
 	global dscanscr
 	global logscr
@@ -165,10 +166,10 @@ def dscan(host,rescan=False):
 
 def show_log():
 	global logscr
-	logscr = curses.newwin((mainscr.getmaxyx()[0]/4)+1,mainscr.getmaxyx()[1]/2,mainscr.getmaxyx()[0]-(mainscr.getmaxyx()[0]/4),mainscr.getmaxyx()[1]/2)
+	logscr = curses.newwin((mainscr.getmaxyx()[0]/2)+1,mainscr.getmaxyx()[1]/2,mainscr.getmaxyx()[0]-(mainscr.getmaxyx()[0]/2),mainscr.getmaxyx()[1]/2)
 	ind = -1
 	for i in xrange(2,logscr.getmaxyx()[0]):
-		if ind > -len(log_buffer): logscr.addstr(logscr.getmaxyx()[0]-i,1,log_buffer[ind])
+		if ind > -len(log_buffer): logscr.addstr(logscr.getmaxyx()[0]-i,1,">"+log_buffer[ind])
 		ind -= 1
 	logscr.border()
 	logscr.refresh()
@@ -249,6 +250,11 @@ def nmap_loop():
 		file_available = True
 		sleep(1)
 
+def bg_deepscan_loop():
+	for host in filter(lambda x: x.state == 'up' and x.reason != 'reset',hosts_res):
+		subprocess.call("sudo nmap -v "+host.addr+" -oX "+spec_res_dir+host.addr+".xml",shell=True,stdout=devnull)
+	pass
+
 input_str = ""
 def on_key_down(key):
 	global input_str
@@ -294,6 +300,7 @@ def on_key_down(key):
 parser = argparse.ArgumentParser(description='Network scanner.')
 mainscr = None
 bg_proc = Process(target=nmap_loop)
+ds_proc = Process(target=bg_deepscan_loop)
 
 parser.add_argument('-d','--display', nargs='?', dest='display_option',help='How the output should be displayed')
 parser.add_argument('-t','--target', nargs='?', dest='target',help='Target network',required=True)
@@ -333,6 +340,7 @@ try:
 		try:
 			if args.display_option == Display_Types.NCURSES:
 				bg_proc.start()
+				ds_proc.start()
 				while 1:
 					scan(args.target)
 					on_key_down(mainscr.getch())
@@ -347,6 +355,6 @@ try:
 			exit()
 except Exception as e:
 	curses.endwin()
-	bg_proc.terminate()
+	if bg_proc != None: bg_proc.terminate()
 	dump_log()
 	raise
