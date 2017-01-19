@@ -2,3 +2,4 @@
 *.xml
 targets
 specific_results/
+scan_log.txt
